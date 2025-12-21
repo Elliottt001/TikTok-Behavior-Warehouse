@@ -3,6 +3,7 @@ import csv
 import json
 import random
 from datetime import datetime
+import pathlib
 
 fake = Faker(['zh_CN'])
 
@@ -199,11 +200,14 @@ def jsonl_gen(file_name, logs_count):
 
 
 if __name__ == "__main__":
+    data_path = pathlib.Path('../data')
     user_header_list = ['user_id', 'nickname', 'age', 'ip', 'fans_num', 'likes_num', 'phone_type', 'register_date']
-    csv_gen('users.csv', 3000000, get_user_row, user_header_list)
+    users_csv_path = data_path / "users.csv"
+    csv_gen(users_csv_path, 3000000, get_user_row, user_header_list)
 
     video_header_list = ['user_id', 'video_id', 'video_title', 'tags', 'duration', 'upload_time']
-    csv_gen('video.csv', 3000000, get_video_row, video_header_list)
+    video_csv_path = data_path / "video.csv"
+    csv_gen(video_csv_path, 3000000, get_video_row, video_header_list)
 
-    jsonl_gen('user_behavior_logs.json', 3000000)
-
+    logs_json_path = data_path / "user_behavior_logs.json"
+    jsonl_gen(logs_json_path, 3000000)

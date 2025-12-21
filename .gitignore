@@ -1,5 +1,8 @@
 # 原始数据文件
-data/users.csv
-data/video.csv
-data/user_behavior_logs.json
-data/tiktok_dw.db
+*.csv
+*.json
+*.db
+data/
+
+# pycache 文件
+scripts/__pycache__/
