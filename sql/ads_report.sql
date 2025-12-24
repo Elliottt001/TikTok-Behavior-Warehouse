@@ -36,7 +36,7 @@ SELECT
     COUNT(DISTINCT db.user_id) AS users_count
 FROM read_parquet('./data/dwd_behavior_logs_parquet.parquet') db
 INNER JOIN read_parquet('./data/dwd_users_parquet.parquet') du ON db.user_id = du.user_id
-GROUP BY event_date
+GROUP BY 1
 ORDER BY event_date ASC;
 
 

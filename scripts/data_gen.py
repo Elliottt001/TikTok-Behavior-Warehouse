@@ -2,7 +2,7 @@ from faker import Faker
 import csv
 import json
 import random
-from datetime import datetime
+from datetime import datetime, timedelta
 import pathlib
 import multiprocessing
 
@@ -15,10 +15,10 @@ class DataGenerator:
                        user_csv_headers,
                        video_csv_headers):
 
-        raw_jsonl_file_path = pathlib.Path(f'../data/raw/user_behavior_logs'
+        raw_jsonl_file_path = pathlib.Path(f'data/raw/user_behavior_logs'
                                            f'_chunk_{chunk_id}.jsonl')
-        raw_user_csv_file_path = f'../data/raw/user_chunk_{chunk_id}.csv'
-        raw_video_csv_file_path = f'../data/raw/video_chunk_{chunk_id}.csv'
+        raw_user_csv_file_path = f'data/raw/user_chunk_{chunk_id}.csv'
+        raw_video_csv_file_path = f'data/raw/video_chunk_{chunk_id}.csv'
 
         self.csv_gen(raw_user_csv_file_path,
                      csv_record_count,
@@ -211,11 +211,11 @@ class DataGenerator:
         
         # 更像真实用户的昵称
         if random.random() < 0.4:
-            nickname = fake.name()  # 真实姓名风格
+            nickname = self.fake.name()  # 真实姓名风格
         elif random.random() < 0.7:
-            nickname = fake.word() + str(random.randint(100, 9999)) # 词语+数字
+            nickname = self.fake.word() + str(random.randint(100, 9999)) # 词语+数字
         else:
-            nickname = random.choice(ADJECTIVES) + random.choice(NOUNS) # 形容词+名词
+            nickname = random.choice(self.ADJECTIVES) + random.choice(self.NOUNS) # 形容词+名词
 
         # 大部分人粉丝少，少数人粉丝多
         if random.random() < 0.9:
@@ -224,22 +224,22 @@ class DataGenerator:
             fans = random.randint(5000, 1000000)
 
         user_dict = {
-            "user_id": None if random.random() < 0.02 else fake.random_number(digits=11), # 加入脏数据：None 的USER ID
+            "user_id": None if random.random() < 0.02 else self.fake.random_number(digits=11), # 加入脏数据：None 的USER ID
             "nickname": None if random.random() < 0.02 else nickname, # 加入脏数据
-            "age": fake.random_int(min=12, max=60),
-            "ip": fake.city_name(),
+            "age": self.fake.random_int(min=12, max=60),
+            "ip": self.fake.city_name(),
             "fans_num": fans,
-            "likes_num": fake.random_int(min=0, max=2000),
-            "phone_type": fake.random_element(elements=phone_type_tuple),
-            "register_time": fake.date_between(start_date='-5y', end_date='today').strftime("%Y/%m/%d")
+            "likes_num": self.fake.random_int(min=0, max=2000),
+            "phone_type": self.fake.random_element(elements=phone_type_tuple),
+            "register_time": self.fake.date_between(start_date='-5y', end_date='today').strftime("%Y/%m/%d")
             }
         
         # 生成脏数据：重复
         if random.random() < 0.01:
-            user_pool.append(user_dict)
-            user_pool.append(user_dict)
+            self.user_pool.append(user_dict)
+            self.user_pool.append(user_dict)
 
-        user_pool.append(user_dict) 
+        self.user_pool.append(user_dict) 
 
         values = list(user_dict.values())
         return values
@@ -247,7 +247,7 @@ class DataGenerator:
     def get_video_record(self):
         # 随机选择1-3个标签
         num_tags = random.randint(1, 3)
-        tag_tuple = tuple(random.sample(VIDEO_TAGS, num_tags))
+        tag_tuple = tuple(random.sample(self.VIDEO_TAGS, num_tags))
 
         # 视频时长分布 (短视频为主)
         r = random.random()
@@ -259,15 +259,15 @@ class DataGenerator:
             duration = random.randint(300, 1800)  # 长视频
 
         video_dict = {
-            "user_id": fake.random_number(digits=11),
-            "video_id": fake.random_number(digits=13),
-            "title": get_random_title(),
+            "user_id": self.fake.random_number(digits=11),
+            "video_id": self.fake.random_number(digits=13),
+            "title": self.get_random_title(),
             "tags": tag_tuple,
             "duration": duration,
-            "update_time": fake.date_between(start_date='-2y', end_date='today').strftime("%Y/%m/%d") 
+            "update_time": self.fake.date_between(start_date='-2y', end_date='today').strftime("%Y/%m/%d") 
         }
 
-        video_pool.append(video_dict)
+        self.video_pool.append(video_dict)
 
         values = list(video_dict.values())
         return values
@@ -317,15 +317,41 @@ class DataGenerator:
                 else:
                     duration = v["duration"]
 
+                # 人为调控时间生成逻辑，模拟留存
+                reg_date = datetime.strptime(u["register_time"], "%Y/%m/%d")
+                video_date = datetime.strptime(v["update_time"], "%Y/%m/%d")
+                # 行为发生时间在用户注册和视频发布之后
+                start_date = max(reg_date, video_date)
+
+                if random.random() < 0.4:
+                    days_delta = 0  # 当天活跃 (Day 0)
+                elif random.random() < 0.6:
+                    days_delta = 1  # 次日活跃 (Day 1)
+                elif random.random() < 0.7:
+                    days_delta = random.randint(2, 6)  # 2-6天内活跃
+                elif random.random() < 0.8:
+                    days_delta = 7  # 第7天活跃 (Day 7)
+                elif random.random() < 0.9:
+                    days_delta = 30  # 第30天活跃 (Day 30)
+                else:
+                    days_delta = random.randint(1, 60)  # 长尾随机时间
+
+                seconds_delta = random.randint(0, 86400)  # 加上随机的秒数
+                final_time = start_date + timedelta(days=days_delta, 
+                                                    seconds=seconds_delta)
+
+                # 如果生成的时间超过了当前时间，就强制设为当前时间往前推一点
+                if final_time > datetime.now():
+                    final_time = datetime.now() - timedelta(seconds=random.randint(0, 86400))
+                
+                time_str = final_time.strftime("%Y/%m/%d %H:%M:%S")
+
                 data = {
                     "user_id": u["user_id"],
                     "video_id": v["video_id"],
                     "action_type": action_type,
                     "duration": duration,
-                    "time_stamp": self.fake.date_time_between(
-                        start_date=datetime.strptime(v["update_time"],
-                                                     "%Y/%m/%d"),
-                        end_date='now').strftime("%Y/%m/%d %H:%M:%S"),
+                    "time_stamp": time_str,
                     "ip": self.fake.city_name()
                 }
 

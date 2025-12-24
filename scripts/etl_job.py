@@ -1,5 +1,5 @@
 from pathlib import Path
-import db_connector
+from . import db_connector
 
 
 class SQLRunner:
